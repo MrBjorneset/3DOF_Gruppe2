@@ -71,7 +71,7 @@ def ball_track(key1, queue):
 
 
 def servo_control(key2, queue):
-    port_id = 'COM5'
+    port_id = 'COM5'     # endre com porten til arduinoen etter behov
     # initialise serial interface
     arduino = serial.Serial(port=port_id, baudrate=250000, timeout=0.1)
     if key2:
