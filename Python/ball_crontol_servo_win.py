@@ -30,7 +30,7 @@ servo3_angle_limit_negative = -90
 
 
 def ball_track(key1, queue):
-    camera_port = 0
+    camera_port = 1
     cap = cv2.VideoCapture(camera_port,cv2.CAP_DSHOW)
     cap.set(3, 1280)
     cap.set(4, 720)
@@ -59,21 +59,21 @@ def ball_track(key1, queue):
                    round(int(countours[0]['area'] - center_point[2])/100)
 
             queue.put(data)
-            #print("The got coordinates for the ball are :", data)
+            print("The got coordinates for the ball are :", data)
         else:
             data = 'nil' # returns nil if we cant find the ball
             queue.put(data)
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
-        # imgStack = cvzone.stackImages([img,imgColor, mask, imgContour],2,0.5) #use for calibration and correction
+        imgStack = cvzone.stackImages([img,imgColor, mask, imgContour],2,0.5) #use for calibration and correction
         cv2.imshow("Image", imgStack)
         cv2.waitKey(1)
 
 
 def servo_control(key2, queue):
-    port_id = 'COM5'     # endre com porten til arduinoen etter behov
+    port_id = 'COM3'     # endre com porten til arduinoen etter behov
     # initialise serial interface
-    arduino = serial.Serial(port=port_id, baudrate=250000, timeout=0.1)
+    arduino = serial.Serial(port_id, baudrate=250000, timeout=0.1)
     if key2:
         print('Servo controls are initiated')
 
@@ -95,7 +95,7 @@ def servo_control(key2, queue):
         corrd_info = queue.get()
 
         if corrd_info == 'nil': # Checks if the output is nil
-            print('cant fins the ball :(')
+            print('cant find the ball :(')
         else:
             print('The position of the ball : ', corrd_info[2])
 
