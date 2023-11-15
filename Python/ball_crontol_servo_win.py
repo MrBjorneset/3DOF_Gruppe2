@@ -73,7 +73,7 @@ def ball_track(key1, queue):
 def servo_control(key2, queue):
     port_id = 'COM3'     # endre com porten til arduinoen etter behov
     # initialise serial interface
-    arduino = serial.Serial(port_id, baudrate=250000, timeout=0.1)
+    arduino = serial.Serial(port_id, 9600, timeout=0.1)
     if key2:
         print('Servo controls are initiated')
 
@@ -88,10 +88,30 @@ def servo_control(key2, queue):
     root = Tk()
     root.resizable(0, 0)
 
+    # -------------------------------------------PID Controller-------------------------------------------
+    def PID(P, I, D, setpoint):
+        integral = 0
+        previous_error = 0
+
+        def control(current_value):
+            nonlocal integral, previous_error
+            error = setpoint - current_value
+            integral += error
+            derivative = error - previous_error
+            previous_error = error
+            return P * error + I * integral + D * derivative
+
+        return control
+
     def writeCoord():
         """
         Here in this function we get both coordinate and servo control, it is an ideal place to implement the controller
         """
+        #Setting up PID controller
+        pid = PID(P=1, I=0.1, D=0.05,setpoint=1)
+        pid.output_limits = (-90, 90)
+
+
         corrd_info = queue.get()
 
         if corrd_info == 'nil': # Checks if the output is nil
