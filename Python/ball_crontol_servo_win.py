@@ -73,7 +73,7 @@ def ball_track(key1, queue):
 def servo_control(key2, queue):
     port_id = 'COM3'     # endre com porten til arduinoen etter behov
     # initialise serial interface
-    arduino = serial.Serial(port_id, 9600, timeout=0.1)
+    arduino = serial.Serial(port_id, 250000, timeout=0.1)
     if key2:
         print('Servo controls are initiated')
 
@@ -89,30 +89,35 @@ def servo_control(key2, queue):
     root.resizable(0, 0)
 
     # -------------------------------------------PID Controller-------------------------------------------
-    def PID(P, I, D, setpoint):
-        integral = 0
-        previous_error = 0
-
-        def control(current_value):
-            nonlocal integral, previous_error
-            error = setpoint - current_value
-            integral += error
-            derivative = error - previous_error
-            previous_error = error
-            return P * error + I * integral + D * derivative
-
-        return control
 
     def writeCoord():
         """
         Here in this function we get both coordinate and servo control, it is an ideal place to implement the controller
         """
-        #Setting up PID controller
-        pid = PID(P=1, I=0.1, D=0.05,setpoint=1)
-        pid.output_limits = (-90, 90)
-
-
         corrd_info = queue.get()
+
+         # Target positions (you may need to adjust these based on your setup)
+        target_x = 0
+        target_y = 0
+        target_z = 0
+
+        # Proportional control gains (adjust as needed)
+        Kp_x = 0.1
+        Kp_y = 0.1
+        Kp_z = 0.1
+
+        # Calculate error
+        error_x = target_x - corrd_info[0]
+        error_y = target_y - corrd_info[1]
+        error_z = target_z - corrd_info[2]
+
+        # Calculate servo angles based on proportional control
+        servo1_angle = math.radians(Kp_x * error_x)
+        servo2_angle = math.radians(Kp_y * error_y)
+        servo3_angle = math.radians(Kp_z * error_z)
+
+        # Send angles to the servos
+        write_servo()
 
         if corrd_info == 'nil': # Checks if the output is nil
             print('cant find the ball :(')
