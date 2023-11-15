@@ -17,9 +17,9 @@ For running both programs simultaneously we can use multithreading or multiproce
 
 
 # define servo angles and set a value
-servo1_angle = -49
-servo2_angle = -44
-servo3_angle = -51
+servo1_angle = 0
+servo2_angle = 0
+servo3_angle = 0
 all_angle = 0
 
 # Set a limit to upto which you want to rotate the servos (You can do it according to your needs)
@@ -62,7 +62,7 @@ def ball_track(key1, queue):
                    int(countours[0]['area'] - center_point[2])
 
             queue.put(data)
-            #print("The got coordinates for the ball are :", data)
+            print("The got coordinates for the ball are :", data)
         else:
             data = 'nil'
             queue.put(data)
