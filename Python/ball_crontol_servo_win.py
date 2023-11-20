@@ -12,6 +12,33 @@ from tkinter import *
 For running both programs simultaneously we can use multithreading or multiprocessing
 """
 
+class PIDController:
+    def __init__(self, Kp, Ki, Kd):
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
+        self.prev_error = 0
+        self.integral = 0
+
+    def update(self, setpoint, current_value):
+        error = setpoint - current_value
+
+        # Proportional term
+        P = self.Kp * error
+
+        # Integral term
+        self.integral += error
+        I = self.Ki * self.integral
+
+        # Derivative term
+        D = self.Kd * (error - self.prev_error)
+
+        # Update previous error
+        self.prev_error = error
+
+        # Calculate and return the control signal
+        return P + I + D
+
 # define servo angles and set a value
 servo1_angle = -4
 servo2_angle = -9
@@ -41,8 +68,8 @@ def ball_track(key1, queue):
     if key1:
         print('Ball tracking is initiated')
 
-    myColorFinder = ColorFinder(False)  # if you want to find the color and calibrate the program we use this *(Debugging)
-    hsvVals = {'hmin': 0, 'smin': 65, 'vmin': 219, 'hmax': 179, 'smax': 255, 'vmax': 255}
+    myColorFinder = ColorFinder(FALSE)  # if you want to find the color and calibrate the program we use this *(Debugging)
+    hsvVals = {'hmin': 0, 'smin': 52, 'vmin': 187, 'hmax': 9, 'smax': 255, 'vmax': 238}
 
     center_point = [626, 337, 2210] # center point of the plate, calibrated
 
@@ -65,7 +92,7 @@ def ball_track(key1, queue):
             queue.put(data)
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
-        imgStack = cvzone.stackImages([img,imgColor, mask, imgContour],2,0.5) #use for calibration and correction
+        #imgStack = cvzone.stackImages([img,imgColor, mask, imgContour],2,0.5) #use for calibration and correction
         cv2.imshow("Image", imgStack)
         cv2.waitKey(1)
 
@@ -76,7 +103,15 @@ def servo_control(key2, queue):
     arduino = serial.Serial(port_id, 250000, timeout=0.1)
     if key2:
         print('Servo controls are initiated')
+    
+    pid_controller_x = PIDController(Kp=1, Ki=0.01, Kd=0.0)
+    pid_controller_y = PIDController(Kp=1, Ki=0.01, Kd=0.0)
+    pid_controller_z = PIDController(Kp=1, Ki=0.01, Kd=0.0)
 
+    setpoint_x = 0  # Adjust as needed
+    setpoint_y = 0  # Adjust as needed
+    setpoint_z = 0  # Adjust as needed
+    
 
     def all_angle_assign(angle_passed1,angle_passed2,angle_passed3):
         global servo1_angle, servo2_angle, servo3_angle
@@ -84,6 +119,8 @@ def servo_control(key2, queue):
         servo2_angle = math.radians(float(angle_passed2))
         servo3_angle = math.radians(float(angle_passed3))
         write_servo()
+
+    
 
     root = Tk()
     root.resizable(0, 0)
@@ -93,8 +130,6 @@ def servo_control(key2, queue):
         """
         Here in this function we get both coordinate and servo control, it is an ideal place to implement the controller
         """
-
-        
         corrd_info = queue.get()
 
         if corrd_info == 'nil': # Checks if the output is nil
@@ -106,7 +141,7 @@ def servo_control(key2, queue):
 
             if (-90 < corrd_info[0] < 90) and (-90 < corrd_info[1] < 90) and (-90 < corrd_info[2] < 90):
 
-                all_angle_assign(corrd_info[0]*(-1),corrd_info[1]*(-1),corrd_info[2]*(-1))
+                all_angle_assign(corrd_info[0],corrd_info[1],corrd_info[2])
             else:
                 all_angle_assign(-4,-9,-6)
 
@@ -130,8 +165,32 @@ def servo_control(key2, queue):
         write_arduino(str(angles))
 
     while key2:
-        writeCoord()
+        corrd_info = queue.get()
+        
+        if corrd_info == 'nil':
+            print('Can\'t find the ball :(')
+        else:
+            error_x = corrd_info[0]
+            error_y = corrd_info[1]
+            error_z = corrd_info[2]
 
+            control_signal_x = pid_controller_x.update(setpoint_x, error_x)
+            control_signal_y = pid_controller_y.update(setpoint_y, error_y)
+            control_signal_z = pid_controller_z.update(setpoint_z, error_z)
+
+            # Apply control signals to adjust the platform position
+            # Update current_position based on the adjustments
+
+            # Replace the following lines with your actual servo control commands
+            servo1_angle = control_signal_x
+            servo2_angle = control_signal_y
+            servo3_angle = control_signal_z
+
+            # Print or log the control signals if needed
+            print(f"Control Signal X: {control_signal_x}, Y: {control_signal_y}, Z: {control_signal_z}")
+            
+            write_servo()
+            
     root.mainloop()  # running loop
 
 if __name__ == '__main__':
