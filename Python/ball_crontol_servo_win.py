@@ -13,9 +13,9 @@ For running both programs simultaneously we can use multithreading or multiproce
 """
 
 # define servo angles and set a value
-servo1_angle = 0
-servo2_angle = 0
-servo3_angle = 0
+servo1_angle = -4
+servo2_angle = -9
+servo3_angle = -6
 all_angle = 0
 
 # Set a limit to upto which you want to rotate the servos (You can do it according to your needs)
@@ -88,24 +88,27 @@ def servo_control(key2, queue):
     root = Tk()
     root.resizable(0, 0)
 
-    # -------------------------------------------PID Controller-------------------------------------------
 
     def writeCoord():
         """
         Here in this function we get both coordinate and servo control, it is an ideal place to implement the controller
         """
+
+        
         corrd_info = queue.get()
 
         if corrd_info == 'nil': # Checks if the output is nil
             print('cant find the ball :(')
         else:
+            print('corrd info 0 : ', corrd_info[0])
+            print('corrd info 1 : ', corrd_info[1])
             print('The position of the ball : ', corrd_info[2])
 
             if (-90 < corrd_info[0] < 90) and (-90 < corrd_info[1] < 90) and (-90 < corrd_info[2] < 90):
 
-                all_angle_assign(corrd_info[0],corrd_info[1],corrd_info[2])
+                all_angle_assign(corrd_info[0]*(-1),corrd_info[1]*(-1),corrd_info[2]*(-1))
             else:
-                all_angle_assign(0,0,0)
+                all_angle_assign(-4,-9,-6)
 
     def write_arduino(data):
         print('The angles send to the arduino : ', data)
@@ -116,6 +119,9 @@ def servo_control(key2, queue):
         ang1 = servo1_angle
         ang2 = servo2_angle
         ang3 = servo3_angle
+        print('servo1_angle : ', servo1_angle)
+        print('servo2_angle : ', servo2_angle)
+        print('servo3_angle : ', servo3_angle)
 
         angles: tuple = (round(math.degrees(ang1), 1),
                          round(math.degrees(ang2), 1),

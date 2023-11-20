@@ -8,18 +8,15 @@ import serial
 import math
 from tkinter import *
 
-
-
 # -------------------------------------------Both programs(Servo Control and Ball Tracker) in one -------------------------------------------
 """
 For running both programs simultaneously we can use multithreading or multiprocessing
 """
 
-
 # define servo angles and set a value
-servo1_angle = 0
-servo2_angle = 0
-servo3_angle = 0
+servo1_angle = -4
+servo2_angle = -9
+servo3_angle = -6
 all_angle = 0
 
 # Set a limit to upto which you want to rotate the servos (You can do it according to your needs)
@@ -165,6 +162,9 @@ if __name__ == '__main__':
     queue = Queue() # The queue is done inorder for the communication between the two processes.
     key1 = 1 # just two dummy arguments passed for the processes
     key2 = 2
+    print('servo1_angle : ', servo1_angle)
+    print('servo2_angle : ', servo2_angle)
+    print('servo3_angle : ', servo3_angle)
     p1 = mp.Process(target= ball_track, args=(key1, queue)) # initiate ball tracking process
     p2 = mp.Process(target=servo_control,args=(key2, queue)) # initiate servo controls
     p1.start()
