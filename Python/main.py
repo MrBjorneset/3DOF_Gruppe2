@@ -11,6 +11,27 @@ from tkinter import *
 """
 For running both programs simultaneously we can use multithreading or multiprocessing
 """
+# Create a PID controller class
+class PIDController:
+    def __init__(self, P, I, D):
+        self.Kp = P
+        self.Ki = I
+        self.Kd = D
+        self.prev_error = 0
+        self.integral = 0
+
+    def update(self, error, dt):
+        self.integral += error * dt
+        derivative = (error - self.prev_error) / dt
+        output = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
+        self.prev_error = error
+        return output
+
+# Initialize PID controllers for each servo angle
+pid1 = PIDController(P=1, I=0.1, D=0.0)
+pid2 = PIDController(P=1, I=0.1, D=0.0)
+pid3 = PIDController(P=1, I=0.1, D=0.0)
+
 # define servo angles and set a value
 servo1_angle = -4
 servo2_angle = -9
@@ -27,6 +48,7 @@ servo2_angle_limit_negative = -90
 servo3_angle_limit_positive = 90
 servo3_angle_limit_negative = -90
 
+# -------------------------------------------Ball Tracker-------------------------------------------
 
 def ball_track(key1, queue):
     camera_port = 1
@@ -68,41 +90,42 @@ def ball_track(key1, queue):
         cv2.imshow("Image", imgStack)
         cv2.waitKey(1)
 
+# -------------------------------------------Servo Control-------------------------------------------
 
 def servo_control(key2, queue):
     port_id = 'COM3'     # endre com porten til arduinoen etter behov
     # initialise serial interface
     arduino = serial.Serial(port_id, 250000, timeout=0.1)
+    dt = 0.1 # time step
     if key2:
         print('Servo controls are initiated')
 
+# Assign new angles to the servos
     def all_angle_assign(angle_passed1,angle_passed2,angle_passed3):
         global servo1_angle, servo2_angle, servo3_angle
-        servo1_angle = math.radians(float(angle_passed1))
-        servo2_angle = math.radians(float(angle_passed2))
-        servo3_angle = math.radians(float(angle_passed3))
-        write_servo()
+        target_angle1 = math.radians(float(angle_passed1))
+        target_angle2 = math.radians(float(angle_passed2))
+        target_angle3 = math.radians(float(angle_passed3))
 
-    
+        servo1_angle += pid1.update(target_angle1 - servo1_angle, dt)
+        servo2_angle += pid2.update(target_angle2 - servo2_angle, dt)
+        servo3_angle += pid3.update(target_angle3 - servo3_angle, dt)
+
+        write_servo()
 
     root = Tk()
     root.resizable(0, 0)
 
 
     def writeCoord():
-        """
-        Here in this function we get both coordinate and servo control, it is an ideal place to implement the controller
-        """
         corrd_info = queue.get()
 
         if corrd_info == 'nil': # Checks if the output is nil
             print('cant find the ball :(')
         else:
-            print('corrd info 0 : ', corrd_info[0])
-            print('corrd info 1 : ', corrd_info[1])
             print('The position of the ball : ', corrd_info[2])
 
-            if (-90 < corrd_info[0] < 90) and (-90 < corrd_info[1] < 90) and (-90 < corrd_info[2] < 90):
+            if (servo1_angle_limit_negative < corrd_info[0] < servo1_angle_limit_positive) and (servo2_angle_limit_negative < corrd_info[1] < servo2_angle_limit_positive) and (servo3_angle_limit_negative < corrd_info[2] < servo3_angle_limit_positive):
 
                 all_angle_assign(corrd_info[0],corrd_info[1],corrd_info[2])
             else:
@@ -110,16 +133,12 @@ def servo_control(key2, queue):
 
     def write_arduino(data):
         print('The angles send to the arduino : ', data)
-
         arduino.write(bytes(data, 'utf-8'))
 
     def write_servo():
         ang1 = servo1_angle
         ang2 = servo2_angle
         ang3 = servo3_angle
-        print('servo1_angle : ', servo1_angle)
-        print('servo2_angle : ', servo2_angle)
-        print('servo3_angle : ', servo3_angle)
 
         angles: tuple = (round(math.degrees(ang1), 1),
                          round(math.degrees(ang2), 1),
