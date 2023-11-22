@@ -29,7 +29,7 @@ servo3_angle_limit_negative = -90
 
 
 def ball_track(key1, queue):
-    camera_port = 1
+    camera_port = 0
     cap = cv2.VideoCapture(camera_port,cv2.CAP_DSHOW)
     cap.set(3, 1280)
     cap.set(4, 720)
@@ -104,7 +104,7 @@ def servo_control(key2, queue):
 
             if (-90 < corrd_info[0] < 90) and (-90 < corrd_info[1] < 90) and (-90 < corrd_info[2] < 90):
 
-                all_angle_assign(corrd_info[0],corrd_info[1],corrd_info[2])
+                all_angle_assign(corrd_info[0]*-1,corrd_info[1]*-1,corrd_info[2]*-1)
             else:
                 all_angle_assign(-4,-9,-6)
 

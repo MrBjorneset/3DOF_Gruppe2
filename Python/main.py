@@ -29,32 +29,15 @@ servo3_angle_limit_negative = -90
 
 # -------------------------------------------Ball Tracker-------------------------------------------
 
-# Add this function to draw axes on the image
-def draw_axes(img, center_point):
-    # Draw x-axis (horizontal line)
-    cv2.line(img, (0, center_point[1]), (img.shape[1], center_point[1]), (0, 255, 0), 2)
-    
-    # Draw y-axis (vertical line)
-    cv2.line(img, (center_point[0], 0), (center_point[0], img.shape[0]), (0, 255, 0), 2)
-
-# Add this function to draw a line following the ball position
-def draw_line_following_ball(img, center_point, ball_position):
-    ball_position_px = (
-        int(center_point[0] + ball_position[0] * 10),
-        int(center_point[1] - ball_position[1] * 10)
-    )
-    
-    cv2.line(img, center_point[:2], ball_position_px, (255, 0, 0), 2)
-
 
 def ball_track(key1, queue):
-    camera_port = 1
+    camera_port = 0
     cap = cv2.VideoCapture(camera_port,cv2.CAP_DSHOW)
     cap.set(3, 1280)
     cap.set(4, 720)
-
     get, img = cap.read()
     h, w, _ = img.shape
+    
 
     if key1:
         print('Ball tracking is initiated')
@@ -63,7 +46,7 @@ def ball_track(key1, queue):
     hsvVals = {'hmin': 0, 'smin': 52, 'vmin': 187, 'hmax': 9, 'smax': 255, 'vmax': 238}
 
     center_point = [626, 337, 2210] # center point of the plate, calibrated
-
+    
 
     while True:
         get, img = cap.read()
@@ -79,13 +62,10 @@ def ball_track(key1, queue):
             queue.put(data)
             print("The got coordinates for the ball are :", data)
 
-            # Call the draw_axes function to draw axes on the image
-            draw_axes(img, (center_point[0], center_point[1]))
-
-            # Call the draw_line_following_ball function to draw a line following the ball position
-            draw_line_following_ball(img, center_point[:2], data)
+          
         else:
             data = 'nil' # returns nil if we cant find the ball
+            
             queue.put(data)
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
@@ -101,6 +81,25 @@ def servo_control(key2, queue):
     arduino = serial.Serial(port_id, 250000, timeout=0.1)
     if key2:
         print('Servo controls are initiated')
+    
+    # PID controllers for each servo
+    pid1 = {'Kp': 0.1, 'Ki': 0.01, 'Kd': 0.05, 'dt': 0.1, 'integral': 0, 'prev_error': 0}
+    pid2 = {'Kp': 0.2, 'Ki': 0.02, 'Kd': 0.1, 'dt': 0.1, 'integral': 0, 'prev_error': 0}
+    pid3 = {'Kp': 0.3, 'Ki': 0.03, 'Kd': 0.15, 'dt': 0.1, 'integral': 0, 'prev_error': 0}
+
+    def pid_controller(setpoint, current_value, pid_params):
+        Kp, Ki, Kd, dt = pid_params['Kp'], pid_params['Ki'], pid_params['Kd'], pid_params['dt']
+    
+        error = setpoint - current_value
+        pid_params['integral'] += error * dt
+        derivative = (error - pid_params['prev_error']) / dt
+    
+        output = Kp * error + Ki * pid_params['integral'] + Kd * derivative
+    
+        pid_params['prev_error'] = error
+    
+        return output
+
 
 # Assign new angles to the servos
     def all_angle_assign(angle_passed1,angle_passed2,angle_passed3):
@@ -146,8 +145,30 @@ def servo_control(key2, queue):
 
     while key2:
         corrd_info = queue.get()
+
+        if corrd_info == 'nil':
+            print('Cannot find the ball :(')
+            all_angle_assign(-4, -9, -6)
+        else:
+            print('The position of the ball:', corrd_info[2])
+
+            if (servo1_angle_limit_negative < corrd_info[0] < servo1_angle_limit_positive) and \
+                    (servo2_angle_limit_negative < corrd_info[1] < servo2_angle_limit_positive) and \
+                    (servo3_angle_limit_negative < corrd_info[2] < servo3_angle_limit_positive):
+
+                # Use PID controllers to adjust servo angles
+                new_angle1 = pid_controller(0, servo1_angle, pid1)
+                new_angle2 = pid_controller(0, servo2_angle, pid2)
+                new_angle3 = pid_controller(0, servo3_angle, pid3)
+
+                all_angle_assign(new_angle1, new_angle2, new_angle3)
             
-    root.mainloop()  # running loop
+                
+
+        root.update()  # Update the Tkinter window
+        root.after(int(0.01 * 1000), root.quit)  # Wait for dt seconds and then close the Tkinter window
+
+    root.mainloop()
 
 if __name__ == '__main__':
 
