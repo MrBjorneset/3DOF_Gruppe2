@@ -162,9 +162,7 @@ if __name__ == '__main__':
     queue = Queue() # The queue is done inorder for the communication between the two processes.
     key1 = 1 # just two dummy arguments passed for the processes
     key2 = 2
-    print('servo1_angle : ', servo1_angle)
-    print('servo2_angle : ', servo2_angle)
-    print('servo3_angle : ', servo3_angle)
+    
     p1 = mp.Process(target= ball_track, args=(key1, queue)) # initiate ball tracking process
     p2 = mp.Process(target=servo_control,args=(key2, queue)) # initiate servo controls
     p1.start()

@@ -11,27 +11,6 @@ from tkinter import *
 """
 For running both programs simultaneously we can use multithreading or multiprocessing
 """
-# Create a PID controller class
-class PIDController:
-    def __init__(self, P, I, D):
-        self.Kp = P
-        self.Ki = I
-        self.Kd = D
-        self.prev_error = 0
-        self.integral = 0
-
-    def update(self, error, dt):
-        self.integral += error * dt
-        derivative = (error - self.prev_error) / dt
-        output = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
-        self.prev_error = error
-        return output
-
-# Initialize PID controllers for each servo angle
-pid1 = PIDController(P=1, I=0.1, D=0.0)
-pid2 = PIDController(P=1, I=0.1, D=0.0)
-pid3 = PIDController(P=1, I=0.1, D=0.0)
-
 # define servo angles and set a value
 servo1_angle = -4
 servo2_angle = -9
@@ -49,6 +28,24 @@ servo3_angle_limit_positive = 90
 servo3_angle_limit_negative = -90
 
 # -------------------------------------------Ball Tracker-------------------------------------------
+
+# Add this function to draw axes on the image
+def draw_axes(img, center_point):
+    # Draw x-axis (horizontal line)
+    cv2.line(img, (0, center_point[1]), (img.shape[1], center_point[1]), (0, 255, 0), 2)
+    
+    # Draw y-axis (vertical line)
+    cv2.line(img, (center_point[0], 0), (center_point[0], img.shape[0]), (0, 255, 0), 2)
+
+# Add this function to draw a line following the ball position
+def draw_line_following_ball(img, center_point, ball_position):
+    ball_position_px = (
+        int(center_point[0] + ball_position[0] * 10),
+        int(center_point[1] - ball_position[1] * 10)
+    )
+    
+    cv2.line(img, center_point[:2], ball_position_px, (255, 0, 0), 2)
+
 
 def ball_track(key1, queue):
     camera_port = 1
@@ -81,6 +78,12 @@ def ball_track(key1, queue):
 
             queue.put(data)
             print("The got coordinates for the ball are :", data)
+
+            # Call the draw_axes function to draw axes on the image
+            draw_axes(img, (center_point[0], center_point[1]))
+
+            # Call the draw_line_following_ball function to draw a line following the ball position
+            draw_line_following_ball(img, center_point[:2], data)
         else:
             data = 'nil' # returns nil if we cant find the ball
             queue.put(data)
@@ -96,7 +99,6 @@ def servo_control(key2, queue):
     port_id = 'COM3'     # endre com porten til arduinoen etter behov
     # initialise serial interface
     arduino = serial.Serial(port_id, 250000, timeout=0.1)
-    dt = 0.1 # time step
     if key2:
         print('Servo controls are initiated')
 
@@ -106,10 +108,6 @@ def servo_control(key2, queue):
         target_angle1 = math.radians(float(angle_passed1))
         target_angle2 = math.radians(float(angle_passed2))
         target_angle3 = math.radians(float(angle_passed3))
-
-        servo1_angle += pid1.update(target_angle1 - servo1_angle, dt)
-        servo2_angle += pid2.update(target_angle2 - servo2_angle, dt)
-        servo3_angle += pid3.update(target_angle3 - servo3_angle, dt)
 
         write_servo()
 
