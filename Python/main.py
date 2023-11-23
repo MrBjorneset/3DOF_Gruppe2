@@ -123,31 +123,15 @@ def servo_control(key2, queue):
         Here in this function we get both coordinate and servo control, it is an ideal place to implement the controller
         """
         corrd_info = queue.get()
-        def constrain(lower, val, upper):
-            return max(lower, max(val, upper))
-        
-        def ikine(p, r):
-            R = 40
-            L = 225
-            p = p * np.pi/180
-            r = r * np.pi/180
-            z = np.array([  np.sqrt(3)*L/6 * np.sin(p)*np.cos(r) - L/2*np.sin(r),
-                        np.sqrt(3)*L/6 * np.sin(p)*np.cos(r) + L/2*np.sin(r),
-                        -np.sqrt(3)*L/6 * np.sin(p)*np.cos(r)])
-            zR = np.zeros(3)
-            for i in range(3):
-                zR[i] = constrain(-1, z[i]/R, 1)
-                Va = np.arcsin(z/R) * 180/np.pi
-            return Va
 
 
         if corrd_info == 'nil': # Checks if the output is nil
             print('cant find the ball :(')
         else:
-            """
+            
             Pservo = np.array([[-14, 14, 0],
-                  [8, -16, 0],
-                  [24, 18,0]])
+                                [8, -16, 0],
+                                [24, 18,0]])
         
             vp = corrd_info[0]
             Tp = np.array([[1, 0, 0],
@@ -172,7 +156,7 @@ def servo_control(key2, queue):
             
             print(Ppr)
             print(Pprz)
-            """
+            
             print('The position of the ball : ', corrd_info)
             Va = ikine(corrd_info[0], corrd_info[1])
             if (-24 < corrd_info[0] < 34) and (-22 < corrd_info[1] < 34) and (-90 < corrd_info[2] < 90) and (servo1_angle_limit_negative < servo1_angle < servo1_angle_limit_positive) and (servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
