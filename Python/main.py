@@ -13,33 +13,6 @@ from tkinter import *
 """
 For running both programs simultaneously we can use multithreading or multiprocessing
 """
-
-class PIDController:
-    def __init__(self, kp, ki, kd, setpoint, sample_time):
-        self.kp = kp
-        self.ki = ki
-        self.kd = kd
-        self.setpoint = setpoint
-        self.sample_time = sample_time
-
-        self.prev_error = 0
-        self.integral = 0
-
-    def update(self, current_value):
-        error = self.setpoint - current_value
-
-        self.integral += error * self.sample_time
-        derivative = (error - self.prev_error) / self.sample_time
-
-        output = self.kp * error + self.ki * self.integral + self.kd * derivative
-
-        self.prev_error = error
-
-        return float(output)
-
-pid_controller_x = PIDController(kp=10, ki=1, kd=0.02, setpoint=7, sample_time=0.1)
-pid_controller_y = PIDController(kp=7, ki=1, kd=0.02, setpoint=2, sample_time=0.1)
-
 # define servo angles and set a value
 servo1_angle = 0
 servo2_angle = 0
@@ -47,14 +20,15 @@ servo3_angle = 0
 all_angle = 0
 
 # Set a limit to upto which you want to rotate the servos (You can do it according to your needs)
-servo1_angle_limit_positive = 90
-servo1_angle_limit_negative = -90
+lim = 30
+servo1_angle_limit_positive = lim
+servo1_angle_limit_negative = -lim
 
-servo2_angle_limit_positive = 90
-servo2_angle_limit_negative = -90
+servo2_angle_limit_positive = lim
+servo2_angle_limit_negative = -lim
 
-servo3_angle_limit_positive = 90
-servo3_angle_limit_negative = -90
+servo3_angle_limit_positive = lim
+servo3_angle_limit_negative = -lim
 
 
 def ball_track(key1, queue):
@@ -98,6 +72,21 @@ def ball_track(key1, queue):
         cv2.imshow("Image", imgStack)
         cv2.waitKey(1)
 
+def PID(x, y):
+        L = np.sqrt(3) * 15
+        d = 0
+        Vp = x * (np.pi / 180)
+        Vr = y * (np.pi / 180)
+
+        Ptr = [ ((np.sqrt(3)*L)  / 6 + d) * np.sin(Vp) * np.cos(Vr) + (L / 2) * np.sin(Vr),
+                ((np.sqrt(3)*L)  / 6 + d) * np.sin(Vp) * np.cos(Vr) - (L / 2) * np.sin(Vr),
+                (-(np.sqrt(3)*L) / 3 + d) * np.sin(Vp) * np.cos(Vr)]
+
+        V1 = -45 + ((45 + 45) / (65 + 65)) * (np.degrees(np.arcsin(Ptr[0] / 5)) + 65)
+        V2 = -45 + ((45 + 45) / (65 + 65)) * (np.degrees(np.arcsin(Ptr[1] / 5)) + 65)
+        V3 = -45 + ((45 + 45) / (65 + 65)) * (np.degrees(np.arcsin(Ptr[2] / 5)) + 65)
+        return V1, V2, V3
+
 
 def servo_control(key2, queue):
     port_id = 'COM3'
@@ -107,20 +96,6 @@ def servo_control(key2, queue):
     if key2:
         print('Servo controls are initiated')
 
-    def calculate_servo_angles(x, y):
-        L = np.sqrt(3) * 13
-        d = 0
-        Vp = x * (np.pi / 180)
-        Vr = y * (np.pi / 180)
-
-        Ptr = [((np.sqrt(3)*L) / 6 + d) * np.sin(Vp) * np.cos(Vr) + (L / 2) *np.sin(Vr),
-               ((np.sqrt(3)*L) / 6 + d) * np.sin(Vp) * np.cos(Vr) - (L / 2) *np.sin(Vr),
-               (-(np.sqrt(3)*L) / 3 + d) * np.sin(Vp) * np.cos(Vr)]
-        
-        V1 = -45 + ((45 + 45 ) / (65 +65)) * (np.degrees(np.arcsin(Ptr[0] / 5)) + 65)
-        V2 = -45 + ((45 + 45 ) / (65 +65)) * (np.degrees(np.arcsin(Ptr[1] / 5)) + 65)
-        V3 = -45 + ((45 + 45 ) / (65 +65)) * (np.degrees(np.arcsin(Ptr[2] / 5)) + 65)
-        return V1, V2, V3
 
     def all_angle_assign(angle_passed1,angle_passed2,angle_passed3):
         global servo1_angle, servo2_angle, servo3_angle
@@ -137,19 +112,27 @@ def servo_control(key2, queue):
         Here in this function we get both coordinate and servo control, it is an ideal place to implement the controller
         """
         corrd_info = queue.get()
+        Kp = 0.5
 
+        try:
+            float_array = [float(value) for value in corrd_info]
+            ball_x = float_array[0]
+            ball_y = float_array[1]
+        except ValueError:
+            print('Invalid coordinate values:', corrd_info)
+            return  # Skip the rest of the function if the conversion fails
 
-        if corrd_info == 'nil': # Checks if the output is nil
-            print('cant find the ball :(')
+        Output = PID(ball_x, ball_y)
+
+        print('The position of the ball : ', corrd_info)
+
+        if (-34 < corrd_info[0] < 44) and (-34 < corrd_info[1] < 44) and (-90 < corrd_info[2] < 90) and (
+            servo1_angle_limit_negative < servo1_angle < servo1_angle_limit_positive) and (
+            servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (
+            servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
+            all_angle_assign(-Output[0] * Kp, -Output[1] * Kp, -Output[2] * Kp)
         else:
-            Output = calculate_servo_angles(corrd_info[0], corrd_info[1])
-            print('The position of the ball : ', corrd_info)
-            
-            if (-24 < corrd_info[0] < 34) and (-22 < corrd_info[1] < 34) and (-90 < corrd_info[2] < 90) and (servo1_angle_limit_negative < servo1_angle < servo1_angle_limit_positive) and (servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
-
-                all_angle_assign(Output[0],Output[1],Output[2])
-            else:
-                all_angle_assign(0,0,0)
+            all_angle_assign(0, 0, 0)
 
     def write_arduino(data):
         print('The angles send to the arduino : ', data)
