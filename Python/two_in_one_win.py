@@ -31,7 +31,7 @@ servo3_angle_limit_negative = -90
 
 
 def ball_track(key1, queue):
-    camera_port = 1
+    camera_port = 0
     cap = cv2.VideoCapture(camera_port, cv2.CAP_DSHOW)
     cap.set(3, 1280)
     cap.set(4, 720)
