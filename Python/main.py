@@ -107,6 +107,20 @@ def servo_control(key2, queue):
     if key2:
         print('Servo controls are initiated')
 
+    def calculate_servo_angles(x, y):
+        L = np.sqrt(3) * 13
+        d = 0
+        Vp = x * (np.pi / 180)
+        Vr = y * (np.pi / 180)
+
+        Ptr = [((np.sqrt(3)*L) / 6 + d) * np.sin(Vp) * np.cos(Vr) + (L / 2) *np.sin(Vr),
+               ((np.sqrt(3)*L) / 6 + d) * np.sin(Vp) * np.cos(Vr) - (L / 2) *np.sin(Vr),
+               (-(np.sqrt(3)*L) / 3 + d) * np.sin(Vp) * np.cos(Vr)]
+        
+        V1 = -45 + ((45 + 45 ) / (65 +65)) * (np.degrees(np.arcsin(Ptr[0] / 5)) + 65)
+        V2 = -45 + ((45 + 45 ) / (65 +65)) * (np.degrees(np.arcsin(Ptr[1] / 5)) + 65)
+        V3 = -45 + ((45 + 45 ) / (65 +65)) * (np.degrees(np.arcsin(Ptr[2] / 5)) + 65)
+        return V1, V2, V3
 
     def all_angle_assign(angle_passed1,angle_passed2,angle_passed3):
         global servo1_angle, servo2_angle, servo3_angle
@@ -128,40 +142,12 @@ def servo_control(key2, queue):
         if corrd_info == 'nil': # Checks if the output is nil
             print('cant find the ball :(')
         else:
-            
-            Pservo = np.array([[-14, 14, 0],
-                                [8, -16, 0],
-                                [24, 18,0]])
-        
-            vp = corrd_info[0]
-            Tp = np.array([[1, 0, 0],
-                 [0,np.cos(vp), -np.sin(vp)],
-                 [0, np.sin(vp), np.cos(vp)]])
-
-            Pp = np.multiply(Pservo, Tp)
-
-            vr = corrd_info[1]
-            Tr = np.array([[np.cos(vr), 0, -np.sin(vr)],
-                [0, 1, 0],
-                [np.sin(vr), 0, np.cos(vr)]])
-
-            Ppr = np.multiply(Pp, Tr)
-
-            zmatrise = np.array([[0, 0, 0],
-                [0,0,0],
-                [corrd_info[2], corrd_info[2], corrd_info[2]]])
-            
-            Pprz = np.add(Ppr, zmatrise)
-
-            
-            print(Ppr)
-            print(Pprz)
-            
+            Output = calculate_servo_angles(corrd_info[0], corrd_info[1])
             print('The position of the ball : ', corrd_info)
-            Va = ikine(corrd_info[0], corrd_info[1])
+            
             if (-24 < corrd_info[0] < 34) and (-22 < corrd_info[1] < 34) and (-90 < corrd_info[2] < 90) and (servo1_angle_limit_negative < servo1_angle < servo1_angle_limit_positive) and (servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
 
-                all_angle_assign(0,0,0)
+                all_angle_assign(Output[0],Output[1],Output[2])
             else:
                 all_angle_assign(0,0,0)
 
