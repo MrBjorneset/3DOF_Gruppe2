@@ -141,8 +141,8 @@ def servo_control(key2, queue):
             print('Invalid coordinate values:', corrd_info)
             return  # Skip the rest of the function if the conversion fails
 
-        pid_x = PIDController(0.5, 0.5, 0.5)
-        pid_y = PIDController(0.5, 0.5, 0.5)
+        pid_x = PIDController(0.8, 0.2, 0.1)
+        pid_y = PIDController(0.8, 0.2, 0.1)
 
         setpoint_x = 0
         setpoint_y = 0
