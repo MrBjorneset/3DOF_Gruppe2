@@ -13,6 +13,26 @@ from tkinter import *
 """
 For running both programs simultaneously we can use multithreading or multiprocessing
 """
+class PIDController:
+    def __init__(self, Kp, Ki, Kd):
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
+        self.prev_error = 0
+        self.integral = 0
+
+    def calculate(self, setpoint, current_value):
+        error = setpoint - current_value
+        self.integral += error
+        derivative = error - self.prev_error
+
+        output = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
+
+        self.prev_error = error
+        return output
+
+
+
 # define servo angles and set a value
 servo1_angle = 0
 servo2_angle = 0
@@ -72,7 +92,7 @@ def ball_track(key1, queue):
         cv2.imshow("Image", imgStack)
         cv2.waitKey(1)
 
-def PID(x, y):
+def calculate_servo_angles(x, y):
         L = np.sqrt(3) * 15
         d = 0
         Vp = x * (np.pi / 180)
@@ -112,7 +132,6 @@ def servo_control(key2, queue):
         Here in this function we get both coordinate and servo control, it is an ideal place to implement the controller
         """
         corrd_info = queue.get()
-        Kp = 0.5
 
         try:
             float_array = [float(value) for value in corrd_info]
@@ -122,7 +141,16 @@ def servo_control(key2, queue):
             print('Invalid coordinate values:', corrd_info)
             return  # Skip the rest of the function if the conversion fails
 
-        Output = PID(ball_x, ball_y)
+        pid_x = PIDController(0.5, 0.5, 0.5)
+        pid_y = PIDController(0.5, 0.5, 0.5)
+
+        setpoint_x = 0
+        setpoint_y = 0
+
+        PID_Output_x = pid_x.calculate(setpoint_x, ball_x)
+        PID_Output_y = pid_y.calculate(setpoint_y, ball_y)
+
+        Servo_angles = calculate_servo_angles(PID_Output_x, PID_Output_y)
 
         print('The position of the ball : ', corrd_info)
 
@@ -130,7 +158,7 @@ def servo_control(key2, queue):
             servo1_angle_limit_negative < servo1_angle < servo1_angle_limit_positive) and (
             servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (
             servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
-            all_angle_assign(-Output[0] * Kp, -Output[1] * Kp, -Output[2] * Kp)
+            all_angle_assign(-Servo_angles[0], -Servo_angles[1], -Servo_angles[2])
         else:
             all_angle_assign(0, 0, 0)
 
