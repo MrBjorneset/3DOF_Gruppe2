@@ -189,7 +189,7 @@ def servo_control(key2, queue):
             float_array = [float(value) for value in corrd_info]
             ball_x = float_array[0]
             ball_y = float_array[1]
-            Matrixes = np.dot(pitch_matrix(ball_x), roll_matrix(ball_y), init_pos_matrix(0)) 
+            Matrixes = np.dot(pitch_matrix(ball_x), roll_matrix(ball_y), init_pos_matrix(0)) # Endre ball_x og ball_y til Output ifrå PID for x og y
         except ValueError:
             print('Invalid coordinate values:', corrd_info)
             return  # Skip the rest of the function if the conversion fails
@@ -203,7 +203,7 @@ def servo_control(key2, queue):
             servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
             print('Matrixes: ', Matrixes)
             try:
-                all_angle_assign(Matrixes[2][0] * 10, Matrixes[2][1] * 10, Matrixes[2][2] * 10)
+                all_angle_assign(Matrixes[2][0], Matrixes[2][1], Matrixes[2][2])
             except ValueError:
                 return
         else:
