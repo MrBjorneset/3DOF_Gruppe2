@@ -6,6 +6,7 @@ from cvzone.ColorModule import ColorFinder
 import cv2
 import serial
 import math
+import time
 import control as ctrl
 from tkinter import *
 
@@ -13,25 +14,8 @@ from tkinter import *
 """
 For running both programs simultaneously we can use multithreading or multiprocessing
 """
-class PIDController:
-    def __init__(self, Kp, Ki, Kd):
-        self.Kp = Kp
-        self.Ki = Ki
-        self.Kd = Kd
-        self.prev_error = 0
-        self.integral = 0
 
-    def calculate(self, setpoint, current_value):
-        error = setpoint - current_value
-        self.integral += error
-        derivative = error - self.prev_error
-
-        output = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
-
-        self.prev_error = error
-        return output
-
-
+Matrixes = np.zeros((3, 3))
 
 # define servo angles and set a value
 servo1_angle = 0
@@ -64,7 +48,7 @@ def ball_track(key1, queue):
         print('Ball tracking is initiated')
 
     myColorFinder = ColorFinder(False)  # if you want to find the color and calibrate the program we use this *(Debugging)
-    hsvVals = {'hmin': 0, 'smin': 52, 'vmin': 187, 'hmax': 9, 'smax': 255, 'vmax': 238}
+    hsvVals = {'hmin': 0, 'smin': 19, 'vmin': 214, 'hmax': 9, 'smax': 125, 'vmax': 255}
 
     center_point = [626, 337, 2210] # center point of the plate, calibrated
     
@@ -89,23 +73,91 @@ def ball_track(key1, queue):
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
         # imgStack = cvzone.stackImages([img,imgColor, mask, imgContour],2,0.5) #use for calibration and correction
+        crosshair_size = 20
+        crosshair_thickness = 2
+        crosshair_color = (255, 255, 255)  # white color
+
+        # Draw vertical line (plus sign)
+        cv2.line(imgStack, (w // 2, h // 2 - crosshair_size), (w // 2, h // 2 + crosshair_size), crosshair_color, crosshair_thickness)
+
+        # Draw horizontal line (plus sign)
+        cv2.line(imgStack, (w // 2 - crosshair_size, h // 2), (w // 2 + crosshair_size, h // 2), crosshair_color, crosshair_thickness)
+
         cv2.imshow("Image", imgStack)
         cv2.waitKey(1)
-
+"""
 def calculate_servo_angles(x, y):
-        L = np.sqrt(3) * 15
+        L = 22.5
         d = 0
         Vp = x * (np.pi / 180)
         Vr = y * (np.pi / 180)
 
-        Ptr = [ ((np.sqrt(3)*L)  / 6 + d) * np.sin(Vp) * np.cos(Vr) + (L / 2) * np.sin(Vr),
-                ((np.sqrt(3)*L)  / 6 + d) * np.sin(Vp) * np.cos(Vr) - (L / 2) * np.sin(Vr),
-                (-(np.sqrt(3)*L) / 3 + d) * np.sin(Vp) * np.cos(Vr)]
+        Ptr = [ ((np.sqrt(3)*L)  / 6 + d) * np.sin(Vp) * np.cos(Vr) - (L / 2) * np.sin(Vr),
+                (-(np.sqrt(3)*L) / 3 + d) * np.sin(Vp) * np.cos(Vr),
+                ((np.sqrt(3)*L)  / 6 + d) * np.sin(Vp) * np.cos(Vr) + (L / 2) * np.sin(Vr)
+                ]
 
-        V1 = -45 + ((45 + 45) / (65 + 65)) * (np.degrees(np.arcsin(Ptr[0] / 5)) + 65)
-        V2 = -45 + ((45 + 45) / (65 + 65)) * (np.degrees(np.arcsin(Ptr[1] / 5)) + 65)
-        V3 = -45 + ((45 + 45) / (65 + 65)) * (np.degrees(np.arcsin(Ptr[2] / 5)) + 65)
+        V1 = (np.degrees(np.arcsin(Ptr[0] / 5)))
+        V2 = (np.degrees(np.arcsin(Ptr[1] / 5)))
+        V3 = (np.degrees(np.arcsin(Ptr[2] / 5)))
+        print('Posisjon matrix')
+        print('The angles of the servos are : ', V1, V2, V3)
         return V1, V2, V3
+"""
+"""
+
+
+
+def constrain(lower, val, upper):
+    return max(lower, max(val, upper))
+
+def incline(x, y):
+    R = 40
+    L = 22.5
+    d = R / 2
+    Vp = x * np.pi/180
+    Vr = y * np.pi/180
+    z = np.array([   (np.sqrt(3)*L/6 + d * np.sin(Vp)*np.cos(Vr) + L/2*np.sin(Vr))* (np.sin(np.radians(20))),
+                      np.sqrt(3)*L/6 + d * np.sin(Vp)*np.cos(Vr) - L/2*np.sin(Vr) * (np.sin(np.radians(20))),
+                     -np.sqrt(3)*L/6 + d * np.sin(Vp)*np.cos(Vr) * (np.sin(np.radians(45))) ])
+    
+    zR = np.zeros(3)
+    for i in range(3):
+        zR[i] = constrain(-1, z[i]/R, 1)
+    Va = np.arcsin(z/R) * 180/np.pi
+    return Va
+"""
+
+
+
+def init_pos_matrix(angle):
+    # Define the position array
+        L = 225
+
+        Pm = np.array([
+            (L/2, -L/2*np.sqrt(3), 0),
+            (-L/2, L/2*np.sqrt(3), 0),
+            (0, -L/2*np.sqrt(3), 0)
+        ])
+        return Pm
+
+def pitch_matrix(angle):
+    # Define the roll matrix
+    roll = np.array([
+        [1, 0, 0],
+        [0, np.cos(angle), -np.sin(angle)],
+        [0, np.sin(angle), np.cos(angle)]
+    ])
+    return roll
+
+def roll_matrix(angle):
+    # Define the pitch matrix
+    pitch = np.array([
+        [np.cos(angle), 0, np.sin(angle)],
+        [0, 1, 0],
+        [-np.sin(angle), 0, np.cos(angle)]
+    ])
+    return pitch
 
 
 def servo_control(key2, queue):
@@ -132,25 +184,16 @@ def servo_control(key2, queue):
         Here in this function we get both coordinate and servo control, it is an ideal place to implement the controller
         """
         corrd_info = queue.get()
-
+        
         try:
             float_array = [float(value) for value in corrd_info]
             ball_x = float_array[0]
             ball_y = float_array[1]
+            Matrixes = np.dot(pitch_matrix(ball_x), roll_matrix(ball_y), init_pos_matrix(0)) 
         except ValueError:
             print('Invalid coordinate values:', corrd_info)
             return  # Skip the rest of the function if the conversion fails
-
-        pid_x = PIDController(0.8, 0.2, 0.1)
-        pid_y = PIDController(0.8, 0.2, 0.1)
-
-        setpoint_x = 0
-        setpoint_y = 0
-
-        PID_Output_x = pid_x.calculate(setpoint_x, ball_x)
-        PID_Output_y = pid_y.calculate(setpoint_y, ball_y)
-
-        Servo_angles = calculate_servo_angles(PID_Output_x, PID_Output_y)
+        
 
         print('The position of the ball : ', corrd_info)
 
@@ -158,7 +201,11 @@ def servo_control(key2, queue):
             servo1_angle_limit_negative < servo1_angle < servo1_angle_limit_positive) and (
             servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (
             servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
-            all_angle_assign(-Servo_angles[0], -Servo_angles[1], -Servo_angles[2])
+            print('Matrixes: ', Matrixes)
+            try:
+                all_angle_assign(Matrixes[2][0] * 10, Matrixes[2][1] * 10, Matrixes[2][2] * 10)
+            except ValueError:
+                return
         else:
             all_angle_assign(0, 0, 0)
 
