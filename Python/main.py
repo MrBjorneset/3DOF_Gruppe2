@@ -14,29 +14,7 @@ from tkinter import *
 """
 For running both programs simultaneously we can use multithreading or multiprocessing
 """
-class PIDController:
-    def __init__(self, P, I, D):
-        self.Kp = P
-        self.Ki = I
-        self.Kd = D
-        self.previous_error = 0
-        self.integral = 0
-        self.last_time = time.time()
 
-    def compute(self, setpoint, actual_value):
-        current_time = time.time()
-        delta_time = current_time - self.last_time
-        self.last_time = current_time
-
-        error = setpoint - actual_value
-        self.integral += error * delta_time
-        derivative = (error - self.previous_error) / delta_time
-        self.previous_error = error
-
-        return self.Kp*error + self.Ki*self.integral + self.Kd*derivative
-
-
-Matrixes = np.zeros((3, 3))
 
 # define servo angles and set a value
 servo1_angle = 0
@@ -108,44 +86,55 @@ def ball_track(key1, queue):
         cv2.waitKey(1)
 
 
-def init_pos_matrix(angle):
-    # Define the position array
-        L = 225
-        Pm = np.array([
-            (L/2, -L/2*np.sqrt(3), 0),
-            (-L/2, L/2*np.sqrt(3), 0),
-            (0, -L/2*np.sqrt(3), 0)
-        ])
-        return Pm
+def incline(p, r):
+        R = 4
+        L = 22.5
+        p = p * np.pi/180 * 20
+        r = r * np.pi/180 * 20
+        
+        # Define the position array
+        PosMatNor = np.array([
+                            (L/2, L/2*np.sqrt(3), 0),
+                            (-L/2, L/2*np.sqrt(3), 0),
+                            (0, -L/np.sqrt(3), 0)
+                            ])
 
-def rotation_matrix(v):
+        # Define the rotation angle in radians
+        v = np.radians(300) # Adjust the angle as needed
+
         # Define the rotation matrix for a rotation around the z-axis
-        V = np.radians(v)
         rotation_matrix = np.array([
-            [np.cos(V), -np.sin(V), 0],
-            [np.sin(V), np.cos(V), 0],
-            [0, 0, 1]
-        ])
-        return rotation_matrix
+                                    [np.cos(v), -np.sin(v), 0],
+                                    [np.sin(v), np.cos(v), 0],
+                                    [0, 0, 1]
+                                    ])
 
-def pitch_matrix(angle):
-    # Define the roll matrix
-    roll = np.array([
-        [1, 0, 0],
-        [0, np.cos(angle), -np.sin(angle)],
-        [0, np.sin(angle), np.cos(angle)]
-    ])
-    return roll
+        # Apply the rotation to the position array
+        PosMatRotated = np.dot(PosMatNor, rotation_matrix)
 
-def roll_matrix(angle):
-    # Define the pitch matrix
-    pitch = np.array([
-        [np.cos(angle), 0, np.sin(angle)],
-        [0, 1, 0],
-        [-np.sin(angle), 0, np.cos(angle)]
-    ])
-    return pitch
+        #Getting angle for pitch and roll for PID and chaning to radians.
+        Vp = p * np.pi / 180
+        Vr = r * np.pi / 180
+                    
+        Transform_matrix_p = np.array ([(1, 0, 0),
+                                        (0, np.cos(Vp),-np.sin(Vp)),
+                                        (0, np.sin(Vp),np.cos(Vp))
+                                        ])
+                    
+        PosPitch = np.dot(PosMatRotated, Transform_matrix_p)
 
+        Transform_matrix_r = np.array ([(np.cos(Vr), 0, -np.sin(Vr)),
+                                        (0, 1, 0),
+                                        (np.sin(Vr), 0, np.cos(Vr))
+                                        ])
+                    
+        z = np.dot(PosPitch,Transform_matrix_r)
+        Va = np.zeros(3)
+        Va[0] = np.arcsin(z[0][2]/R) * 180/np.pi
+        Va[1] = np.arcsin(z[1][2]/R) * 180/np.pi
+        Va[2] = np.arcsin(z[2][2]/R) * 180/np.pi
+
+        return Va
 
 def servo_control(key2, queue):
     port_id = 'COM3'
@@ -176,8 +165,7 @@ def servo_control(key2, queue):
             float_array = [float(value) for value in corrd_info]
             ball_x = float_array[0]
             ball_y = float_array[1]
-            PosMatrix = np.dot(init_pos_matrix(0), rotation_matrix(135))
-            Matrixes = np.dot(pitch_matrix(ball_x), roll_matrix(ball_y), PosMatrix) # Endre ball_x og ball_y til Output ifrå PID for x og y
+            Va = incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
         except ValueError:
             print('Invalid coordinate values:', corrd_info)
             return  # Skip the rest of the function if the conversion fails
@@ -189,11 +177,9 @@ def servo_control(key2, queue):
             servo1_angle_limit_negative < servo1_angle < servo1_angle_limit_positive) and (
             servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (
             servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
-            print('Matrixes: ', Matrixes)
-            try:
-                all_angle_assign(Matrixes[2][0] * -10, Matrixes[2][1] * -10, Matrixes[2][2] * -10)
-            except ValueError:
-                return
+            
+            all_angle_assign(Va[0], Va[1], Va[2])
+            
         else:
             all_angle_assign(0, 0, 0)
 
