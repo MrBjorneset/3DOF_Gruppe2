@@ -119,21 +119,21 @@ def ball_track(key1, queue):
         cv2.waitKey(1)
 
 
-def incline(p, r) :
+def incline(pitch, roll) :
         R = 4
         L = 22.5
-        p = p * np.pi/180 * 20
-        r = r * np.pi/180 * 20
+        p = np.deg2rad(pitch)
+        r = np.deg2rad(roll)
         
         # Define the position array
         PosMatNor = np.array([
-                            (L/2, L/2*np.sqrt(3), 0),
-                            (-L/2, L/2*np.sqrt(3), 0),
-                            (0, -L/np.sqrt(3), 0)
+                            [L/2, -L/2, 0],
+                            [L/(2*np.sqrt(3)), L/(2*np.sqrt(3)), -(L/np.sqrt(3))],
+                            [0, 0, 0]
                             ])
 
         # Define the rotation angle in radians
-        v = np.radians(300) # Adjust the angle as needed
+        v = np.deg2rad(20) # Adjust the angle as needed
 
         # Define the rotation matrix for a rotation around the z-axis
         rotation_matrix = np.array([
@@ -143,30 +143,33 @@ def incline(p, r) :
                                     ])
 
         # Apply the rotation to the position array
-        PosMatRotated = np.dot(PosMatNor, rotation_matrix)
+        PosMatRotated = np.dot(rotation_matrix, PosMatNor)
 
         #Getting angle for pitch and roll for PID and chaning to radians.
-        Vp = p * np.pi / 180
-        Vr = r * np.pi / 180
-                    
-        Transform_matrix_p = np.array ([(1, 0, 0),
-                                        (0, np.cos(Vp),-np.sin(Vp)),
-                                        (0, np.sin(Vp),np.cos(Vp))
-                                        ])
-                    
-        PosPitch = np.dot(PosMatRotated, Transform_matrix_p)
+        Vp = p
+        Vr = r
 
-        Transform_matrix_r = np.array ([(np.cos(Vr), 0, -np.sin(Vr)),
+        Transform_matrix_pitch = np.array ([(np.cos(Vp), 0, -np.sin(Vp)),
                                         (0, 1, 0),
-                                        (np.sin(Vr), 0, np.cos(Vr))
+                                        (np.sin(Vp), 0, np.cos(Vp))
                                         ])
                     
-        z = np.dot(PosPitch,Transform_matrix_r)
-        Va = np.zeros(3)
-        Va[0] = np.arcsin(z[0][2]/R) * 180/np.pi
-        Va[1] = np.arcsin(z[1][2]/R) * 180/np.pi
-        Va[2] = np.arcsin(z[2][2]/R) * 180/np.pi
+        PosPitch = np.dot(Transform_matrix_pitch, PosMatRotated)
 
+        Transform_matrix_roll = np.array ([(1, 0, 0),
+                                        (0, np.cos(Vr),-np.sin(Vr)),
+                                        (0, np.sin(Vr),np.cos(Vr))
+                                        ])
+                    
+        z = np.dot(Transform_matrix_roll, PosPitch)
+
+        print(z[2][0], z[2][1], z[2][2])
+
+        Va = np.array([0, 0, 0])
+        Va[0] = np.rad2deg(np.arcsin(z[2][0]/R))
+        Va[1] = np.rad2deg(np.arcsin(z[2][1]/R))
+        Va[2] = np.rad2deg(np.arcsin(z[2][2]/R))
+        print(Va[0], Va[1], Va[2])
         return Va
 
 def servo_control(key2, queue):
@@ -180,9 +183,9 @@ def servo_control(key2, queue):
 
     def all_angle_assign(angle_passed1,angle_passed2,angle_passed3):
         global servo1_angle, servo2_angle, servo3_angle
-        servo1_angle = -math.radians(float(angle_passed1))
-        servo2_angle = -math.radians(float(angle_passed2))
-        servo3_angle = -math.radians(float(angle_passed3))
+        servo1_angle = -(float(angle_passed1))
+        servo2_angle = -(float(angle_passed2))
+        servo3_angle = -(float(angle_passed3))
         write_servo()
 
     root = Tk()
@@ -198,20 +201,20 @@ def servo_control(key2, queue):
             float_array = [float(value) for value in corrd_info]
             ball_x = PID_X.compute(5.0, float_array[0])
             ball_y = PID_Y.compute(2.0, float_array[1])
-            Va = incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
+            ContAng = incline(0.5,0.5)#incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
         except ValueError:
-            print('Invalid coordinate values:', corrd_info)
+            #print('Invalid coordinate values:', corrd_info)
             return  # Skip the rest of the function if the conversion fails
         
 
-        print('The position of the ball : ', corrd_info)
+        #print('The position of the ball : ', corrd_info)
 
-        if (-34 < corrd_info[0] < 44) and (-34 < corrd_info[1] < 44) and (-90 < corrd_info[2] < 90) and (
+        if (-34 < corrd_info[0] < 44) and (-34 < corrd_info[1] < 44) and (-9000 < corrd_info[2] < 9000) and (
             servo1_angle_limit_negative < servo1_angle < servo1_angle_limit_positive) and (
             servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (
             servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
             
-            all_angle_assign(Va[0], Va[1], Va[2])
+            all_angle_assign(ContAng[0], ContAng[1], ContAng[2])
             
         else:
             all_angle_assign(0, 0, 0)
@@ -226,9 +229,9 @@ def servo_control(key2, queue):
         ang2 = servo2_angle
         ang3 = servo3_angle
 
-        angles: tuple = (round(math.degrees(ang1), 1),
-                         round(math.degrees(ang2), 1),
-                         round(math.degrees(ang3), 1))
+        angles: tuple = (round((ang1), 1),
+                         round((ang2), 1),
+                         round((ang3), 1))
 
         write_arduino(str(angles))
 
