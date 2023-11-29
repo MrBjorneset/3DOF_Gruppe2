@@ -14,7 +14,35 @@ from tkinter import *
 """
 For running both programs simultaneously we can use multithreading or multiprocessing
 """
+class PIDController:
+    def __init__(self, P, I, D):
+        self.Kp = P
+        self.Ki = I
+        self.Kd = D
+        self.previous_error = 0
+        self.integral = 0
+        self.last_time = time.time()
 
+    def compute(self, setpoint, actual_value):
+        current_time = time.time()
+        delta_time = current_time - self.last_time
+        self.last_time = current_time
+
+        error = setpoint - actual_value
+        self.integral = error * delta_time
+        derivative = (error - self.previous_error) / delta_time
+        self.previous_error = error
+
+        print(self.integral)
+
+        return self.Kp*error + self.Ki*self.integral + self.Kd*derivative
+
+Kp = 0.3
+Ki = 0.1
+Kd = 0.15
+
+PID_X = PIDController(Kp, Ki , Kd)
+PID_Y = PIDController(Kp, Ki , Kd)
 
 # define servo angles and set a value
 servo1_angle = 0
@@ -86,7 +114,7 @@ def ball_track(key1, queue):
         cv2.waitKey(1)
 
 
-def incline(p, r):
+def incline(p, r) :
         R = 4
         L = 22.5
         p = p * np.pi/180 * 20
@@ -147,9 +175,9 @@ def servo_control(key2, queue):
 
     def all_angle_assign(angle_passed1,angle_passed2,angle_passed3):
         global servo1_angle, servo2_angle, servo3_angle
-        servo1_angle = math.radians(float(angle_passed1))
-        servo2_angle = math.radians(float(angle_passed2))
-        servo3_angle = math.radians(float(angle_passed3))
+        servo1_angle = -math.radians(float(angle_passed1))
+        servo2_angle = -math.radians(float(angle_passed2))
+        servo3_angle = -math.radians(float(angle_passed3))
         write_servo()
 
     root = Tk()
@@ -163,8 +191,8 @@ def servo_control(key2, queue):
         
         try:
             float_array = [float(value) for value in corrd_info]
-            ball_x = float_array[0]
-            ball_y = float_array[1]
+            ball_x = PID_X.compute(-8.0, float_array[0])
+            ball_y = PID_Y.compute(-8.0, float_array[1])
             Va = incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
         except ValueError:
             print('Invalid coordinate values:', corrd_info)
