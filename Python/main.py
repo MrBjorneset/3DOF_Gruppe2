@@ -43,8 +43,8 @@ class PIDController:
         return self.Kp*error + self.Ki*self.integral + self.Kd*derivative
 
 Kp = 0.3
-Ki = 0.05
-Kd = 0.15
+Ki = 0.09
+Kd = 0.25
 
 PID_X = PIDController(Kp, Ki , Kd)
 PID_Y = PIDController(Kp, Ki , Kd)
@@ -88,7 +88,7 @@ def ball_track(key1, queue):
     while True:
         get, img = cap.read()
         imgColor, mask = myColorFinder.update(img, hsvVals)
-        imgContour, countours = cvzone.findContours(img, mask, minArea=2000, maxArea=5500)
+        imgContour, countours = cvzone.findContours(img, mask, minArea=1000, maxArea=5000)
         
         if countours:
 
@@ -196,8 +196,8 @@ def servo_control(key2, queue):
         
         try:
             float_array = [float(value) for value in corrd_info]
-            ball_x = PID_X.compute(8.0, float_array[0])
-            ball_y = PID_Y.compute(-8.0, float_array[1])
+            ball_x = PID_X.compute(5.0, float_array[0])
+            ball_y = PID_Y.compute(2.0, float_array[1])
             Va = incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
         except ValueError:
             print('Invalid coordinate values:', corrd_info)
