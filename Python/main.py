@@ -133,7 +133,7 @@ def incline(pitch, roll) :
                             ])
 
         # Define the rotation angle in radians
-        v = np.deg2rad(20) # Adjust the angle as needed
+        v = np.deg2rad(75) # Adjust the angle as needed
 
         # Define the rotation matrix for a rotation around the z-axis
         rotation_matrix = np.array([
@@ -201,7 +201,7 @@ def servo_control(key2, queue):
             float_array = [float(value) for value in corrd_info]
             ball_x = PID_X.compute(5.0, float_array[0])
             ball_y = PID_Y.compute(2.0, float_array[1])
-            ContAng = incline(0.5,0.5)#incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
+            ContAng = incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
         except ValueError:
             #print('Invalid coordinate values:', corrd_info)
             return  # Skip the rest of the function if the conversion fails
