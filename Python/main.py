@@ -14,7 +14,40 @@ from tkinter import *
 """
 For running both programs simultaneously we can use multithreading or multiprocessing
 """
+class PIDController:
+    def __init__(self, P, I, D):
+        self.Kp = P
+        self.Ki = I
+        self.Kd = D
+        self.previous_error = 0
+        self.integral = 0
+        self.windup = 200
+        self.last_time = time.time()
 
+    def compute(self, setpoint, actual_value):
+        current_time = time.time()
+        delta_time = current_time - self.last_time
+        
+        error = setpoint - actual_value
+        self.integral += error * delta_time
+        derivative = (error - self.previous_error) / delta_time
+        self.previous_error = error
+
+        if (self.integral > self.windup):
+            self.integral = -self.windup
+        if (self.integral < -self.windup):
+            self.integral = self.windup
+        
+        self.last_time = current_time
+        print("error Value: ", error)
+        return self.Kp*error + self.Ki*self.integral + self.Kd*derivative
+
+Kp = 0.29 #0.3
+Ki = 0.125 #0.12
+Kd = 0.25 #0.25
+
+PID_X = PIDController(Kp, Ki , Kd)
+PID_Y = PIDController(Kp, Ki , Kd)
 
 # define servo angles and set a value
 servo1_angle = 0
@@ -47,7 +80,7 @@ def ball_track(key1, queue):
         print('Ball tracking is initiated')
 
     myColorFinder = ColorFinder(False)  # if you want to find the color and calibrate the program we use this *(Debugging)
-    hsvVals = {'hmin': 0, 'smin': 19, 'vmin': 214, 'hmax': 9, 'smax': 125, 'vmax': 255}
+    hsvVals = {'hmin': 0, 'smin': 124, 'vmin': 216, 'hmax': 39, 'smax': 255, 'vmax': 255}
 
     center_point = [626, 337, 2210] # center point of the plate, calibrated
     
@@ -55,7 +88,7 @@ def ball_track(key1, queue):
     while True:
         get, img = cap.read()
         imgColor, mask = myColorFinder.update(img, hsvVals)
-        imgContour, countours = cvzone.findContours(img, mask)
+        imgContour, countours = cvzone.findContours(img, mask, minArea=1000, maxArea=5000)
         
         if countours:
 
@@ -100,7 +133,7 @@ def incline(p, r):
                             ])
 
         # Define the rotation angle in radians
-        v = np.radians(300) # Adjust the angle as needed
+        v = np.radians(280) # Adjust the angle as needed
 
         # Define the rotation matrix for a rotation around the z-axis
         rotation_matrix = np.array([
@@ -147,9 +180,9 @@ def servo_control(key2, queue):
 
     def all_angle_assign(angle_passed1,angle_passed2,angle_passed3):
         global servo1_angle, servo2_angle, servo3_angle
-        servo1_angle = math.radians(float(angle_passed1))
-        servo2_angle = math.radians(float(angle_passed2))
-        servo3_angle = math.radians(float(angle_passed3))
+        servo1_angle = (float(angle_passed1))
+        servo2_angle = (float(angle_passed2))
+        servo3_angle = (float(angle_passed3))
         write_servo()
 
     root = Tk()
@@ -163,22 +196,23 @@ def servo_control(key2, queue):
         
         try:
             float_array = [float(value) for value in corrd_info]
-            ball_x = float_array[0]
-            ball_y = float_array[1]
-            Va = incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
         except ValueError:
-            print('Invalid coordinate values:', corrd_info)
+            #print('Invalid coordinate values:', corrd_info)
             return  # Skip the rest of the function if the conversion fails
         
 
         print('The position of the ball : ', corrd_info)
 
-        if (-34 < corrd_info[0] < 44) and (-34 < corrd_info[1] < 44) and (-90 < corrd_info[2] < 90) and (
+        if (-34 < corrd_info[0] < 44) and (-34 < corrd_info[1] < 44) and (-9000 < corrd_info[2] < 9000) and (
             servo1_angle_limit_negative < servo1_angle < servo1_angle_limit_positive) and (
             servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (
             servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
-            
-            all_angle_assign(Va[0], Va[1], Va[2])
+
+            Roll  = -PID_Y.compute(5, float_array[1])
+            Pitch = -PID_X.compute(10, float_array[0])
+
+            ContAng = incline(Pitch, Roll)#incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
+            all_angle_assign(ContAng[0], ContAng[1], ContAng[2])
             
         else:
             all_angle_assign(0, 0, 0)
@@ -193,9 +227,9 @@ def servo_control(key2, queue):
         ang2 = servo2_angle
         ang3 = servo3_angle
 
-        angles: tuple = (round(math.degrees(ang1), 1),
-                         round(math.degrees(ang2), 1),
-                         round(math.degrees(ang3), 1))
+        angles: tuple = (round((ang1), 1),
+                         round((ang2), 1),
+                         round((ang3), 1))
 
         write_arduino(str(angles))
 
