@@ -3,9 +3,10 @@ import numpy as np
 from multiprocessing import Queue
 import cvzone
 from cvzone.ColorModule import ColorFinder
+import matplotlib.pyplot as plt
 import cv2
 import serial
-import math
+import pandas as pd
 import time
 import control as ctrl
 from tkinter import *
@@ -40,14 +41,17 @@ class PIDController:
         
         self.last_time = current_time
         print("error Value: ", error)
-        return self.Kp*error + self.Ki*self.integral + self.Kd*derivative
+        return self.Kp*error + self.Ki*self.integral + self.Kd*derivative, error, self.integral, derivative
 
-Kp = 0.29 #0.3
-Ki = 0.125 #0.12
-Kd = 0.25 #0.25
+Kp = 1.2 #0.3
+Ki = 0.48 #0.12
+Kd = 0.96 #0.25
 
 PID_X = PIDController(Kp, Ki , Kd)
 PID_Y = PIDController(Kp, Ki , Kd)
+
+pid_data = pd.DataFrame(columns=['Time', 'Output_X', 'Output_Y']) # Må kanskje endre Outputs til ball posisjon
+
 
 # define servo angles and set a value
 servo1_angle = 0
@@ -127,20 +131,18 @@ def incline(p, r):
         
         # Define the position array
         PosMatNor = np.array([
-                            (L/2, L/2*np.sqrt(3), 0),
+                            ( L/2, L/2*np.sqrt(3), 0),
                             (-L/2, L/2*np.sqrt(3), 0),
-                            (0, -L/np.sqrt(3), 0)
-                            ])
+                            (0, -L/np.sqrt(3), 0)])
 
         # Define the rotation angle in radians
-        v = np.radians(280) # Adjust the angle as needed
+        v = np.radians(280) 
 
         # Define the rotation matrix for a rotation around the z-axis
         rotation_matrix = np.array([
                                     [np.cos(v), -np.sin(v), 0],
                                     [np.sin(v), np.cos(v), 0],
-                                    [0, 0, 1]
-                                    ])
+                                    [0, 0, 1]])
 
         # Apply the rotation to the position array
         PosMatRotated = np.dot(PosMatNor, rotation_matrix)
@@ -150,24 +152,26 @@ def incline(p, r):
         Vr = r * np.pi / 180
                     
         Transform_matrix_p = np.array ([(1, 0, 0),
-                                        (0, np.cos(Vp),-np.sin(Vp)),
-                                        (0, np.sin(Vp),np.cos(Vp))
-                                        ])
+                                        (0, np.cos(Vp), -np.sin(Vp)),
+                                        (0, np.sin(Vp), np.cos(Vp))])
                     
         PosPitch = np.dot(PosMatRotated, Transform_matrix_p)
 
         Transform_matrix_r = np.array ([(np.cos(Vr), 0, -np.sin(Vr)),
                                         (0, 1, 0),
-                                        (np.sin(Vr), 0, np.cos(Vr))
-                                        ])
+                                        (np.sin(Vr), 0, np.cos(Vr))])
                     
-        z = np.dot(PosPitch,Transform_matrix_r)
+        z = np.dot(PosPitch, Transform_matrix_r)
         Va = np.zeros(3)
+
+        for i in range(3):
+            Va[i] = np.arcsin(z[i][2] / R) * 180 / np.pi
+        return Va
+        """
         Va[0] = np.arcsin(z[0][2]/R) * 180/np.pi
         Va[1] = np.arcsin(z[1][2]/R) * 180/np.pi
         Va[2] = np.arcsin(z[2][2]/R) * 180/np.pi
-
-        return Va
+        """
 
 def servo_control(key2, queue):
     port_id = 'COM3'
@@ -208,10 +212,17 @@ def servo_control(key2, queue):
             servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (
             servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
 
-            Roll  = -PID_Y.compute(5, float_array[1])
-            Pitch = -PID_X.compute(10, float_array[0])
+            Roll  = -PID_Y.compute(5, float_array[1])[0]
+            Pitch = -PID_X.compute(10, float_array[0])[0]
 
-            ContAng = incline(Pitch, Roll)#incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
+            pid_data = pid_data.append({                        
+                                    'Time': time.time(),
+                                    'Output_X': Pitch,
+                                    'Output_Y': Roll},
+                                    ignore_index=True) # Må kanskje endre Outputs til ball posisjon
+
+
+            ContAng = incline(Pitch, Roll)
             all_angle_assign(ContAng[0], ContAng[1], ContAng[2])
             
         else:
@@ -236,7 +247,25 @@ def servo_control(key2, queue):
     while key2 == 2:
         writeCoord()
 
+    
+    pid_data.to_excel('pid_data.xlsx', index=False)
     root.mainloop()  # running loop
+
+    pid_data = pd.read_excel('pid_data.xlsx')
+
+    plt.figure(figsize=(12, 6))
+
+    plt.plot(pid_data['Time'], pid_data['Output_X'], label='Output_X', color='blue') # må kanskje endre til ball_x
+    plt.plot(pid_data['Time'], pid_data['Output_Y'], label='Output_Y', color='red')  # må kanskje endre til ball_y
+
+    plt.axhline(x=0, color='black', linestyle='--', label='Seitpoint reached')
+
+    plt.title('PID Output for X and Y')
+    plt.xlabel('Time')
+    plt.ylabel('Output Value')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
 if __name__ == '__main__':
 
