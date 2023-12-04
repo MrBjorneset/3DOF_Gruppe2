@@ -5,7 +5,7 @@ import cvzone
 from cvzone.ColorModule import ColorFinder
 import cv2
 import serial
-import math
+import pandas as pd
 import time
 import control as ctrl
 from tkinter import *
@@ -21,7 +21,7 @@ class PIDController:
         self.Kd = D
         self.previous_error = 0
         self.integral = 0
-        self.windup = 20
+        self.windup = 200
         self.last_time = time.time()
 
     def compute(self, setpoint, actual_value):
@@ -39,15 +39,18 @@ class PIDController:
             self.integral = self.windup
         
         self.last_time = current_time
-
+        print("error Value: ", error)
         return self.Kp*error + self.Ki*self.integral + self.Kd*derivative
 
-Kp = 0.3
-Ki = 0.09
-Kd = 0.25
+Kp = 0.3 #0.3
+Ki = 0.12 #0.12
+Kd = 0.25 #0.25
 
 PID_X = PIDController(Kp, Ki , Kd)
 PID_Y = PIDController(Kp, Ki , Kd)
+
+pid_data = []
+start_time = time.time()
 
 # define servo angles and set a value
 servo1_angle = 0
@@ -80,7 +83,7 @@ def ball_track(key1, queue):
         print('Ball tracking is initiated')
 
     myColorFinder = ColorFinder(False)  # if you want to find the color and calibrate the program we use this *(Debugging)
-    hsvVals = {'hmin': 0, 'smin': 19, 'vmin': 214, 'hmax': 9, 'smax': 125, 'vmax': 255}
+    hsvVals = {'hmin': 0, 'smin': 124, 'vmin': 216, 'hmax': 39, 'smax': 255, 'vmax': 255}
 
     center_point = [626, 337, 2210] # center point of the plate, calibrated
     
@@ -119,21 +122,21 @@ def ball_track(key1, queue):
         cv2.waitKey(1)
 
 
-def incline(pitch, roll) :
+def incline(p, r):
         R = 4
         L = 22.5
-        p = np.deg2rad(pitch)
-        r = np.deg2rad(roll)
+        p = p * np.pi/180 * 20
+        r = r * np.pi/180 * 20
         
         # Define the position array
         PosMatNor = np.array([
-                            [L/2, -L/2, 0],
-                            [L/(2*np.sqrt(3)), L/(2*np.sqrt(3)), -(L/np.sqrt(3))],
-                            [0, 0, 0]
+                            (L/2, L/2*np.sqrt(3), 0),
+                            (-L/2, L/2*np.sqrt(3), 0),
+                            (0, -L/np.sqrt(3), 0)
                             ])
 
         # Define the rotation angle in radians
-        v = np.deg2rad(75) # Adjust the angle as needed
+        v = np.radians(280) # Adjust the angle as needed
 
         # Define the rotation matrix for a rotation around the z-axis
         rotation_matrix = np.array([
@@ -143,33 +146,30 @@ def incline(pitch, roll) :
                                     ])
 
         # Apply the rotation to the position array
-        PosMatRotated = np.dot(rotation_matrix, PosMatNor)
+        PosMatRotated = np.dot(PosMatNor, rotation_matrix)
 
         #Getting angle for pitch and roll for PID and chaning to radians.
-        Vp = p
-        Vr = r
+        Vp = p * np.pi / 180
+        Vr = r * np.pi / 180
+                    
+        Transform_matrix_p = np.array ([(1, 0, 0),
+                                        (0, np.cos(Vp),-np.sin(Vp)),
+                                        (0, np.sin(Vp),np.cos(Vp))
+                                        ])
+                    
+        PosPitch = np.dot(PosMatRotated, Transform_matrix_p)
 
-        Transform_matrix_pitch = np.array ([(np.cos(Vp), 0, -np.sin(Vp)),
+        Transform_matrix_r = np.array ([(np.cos(Vr), 0, -np.sin(Vr)),
                                         (0, 1, 0),
-                                        (np.sin(Vp), 0, np.cos(Vp))
+                                        (np.sin(Vr), 0, np.cos(Vr))
                                         ])
                     
-        PosPitch = np.dot(Transform_matrix_pitch, PosMatRotated)
+        z = np.dot(PosPitch,Transform_matrix_r)
+        Va = np.zeros(3)
+        Va[0] = np.arcsin(z[0][2]/R) * 180/np.pi
+        Va[1] = np.arcsin(z[1][2]/R) * 180/np.pi
+        Va[2] = np.arcsin(z[2][2]/R) * 180/np.pi
 
-        Transform_matrix_roll = np.array ([(1, 0, 0),
-                                        (0, np.cos(Vr),-np.sin(Vr)),
-                                        (0, np.sin(Vr),np.cos(Vr))
-                                        ])
-                    
-        z = np.dot(Transform_matrix_roll, PosPitch)
-
-        print(z[2][0], z[2][1], z[2][2])
-
-        Va = np.array([0, 0, 0])
-        Va[0] = np.rad2deg(np.arcsin(z[2][0]/R))
-        Va[1] = np.rad2deg(np.arcsin(z[2][1]/R))
-        Va[2] = np.rad2deg(np.arcsin(z[2][2]/R))
-        print(Va[0], Va[1], Va[2])
         return Va
 
 def servo_control(key2, queue):
@@ -183,9 +183,9 @@ def servo_control(key2, queue):
 
     def all_angle_assign(angle_passed1,angle_passed2,angle_passed3):
         global servo1_angle, servo2_angle, servo3_angle
-        servo1_angle = -(float(angle_passed1))
-        servo2_angle = -(float(angle_passed2))
-        servo3_angle = -(float(angle_passed3))
+        servo1_angle = (float(angle_passed1))
+        servo2_angle = (float(angle_passed2))
+        servo3_angle = (float(angle_passed3))
         write_servo()
 
     root = Tk()
@@ -199,21 +199,24 @@ def servo_control(key2, queue):
         
         try:
             float_array = [float(value) for value in corrd_info]
-            ball_x = PID_X.compute(5.0, float_array[0])
-            ball_y = PID_Y.compute(2.0, float_array[1])
-            ContAng = incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
         except ValueError:
             #print('Invalid coordinate values:', corrd_info)
             return  # Skip the rest of the function if the conversion fails
         
 
-        #print('The position of the ball : ', corrd_info)
+        print('The position of the ball : ', corrd_info)
 
         if (-34 < corrd_info[0] < 44) and (-34 < corrd_info[1] < 44) and (-9000 < corrd_info[2] < 9000) and (
             servo1_angle_limit_negative < servo1_angle < servo1_angle_limit_positive) and (
             servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (
             servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
+
+            Roll  = -PID_Y.compute(5, float_array[1])
+            Pitch = -PID_X.compute(10, float_array[0])
+            current_time = time.time() - start_time
             
+            pid_data.append({'Time': current_time, 'Output_X': float_array[0], 'Output_Y': float_array[1]})
+            ContAng = incline(Pitch, Roll)#incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
             all_angle_assign(ContAng[0], ContAng[1], ContAng[2])
             
         else:
@@ -236,8 +239,12 @@ def servo_control(key2, queue):
         write_arduino(str(angles))
 
     while key2 == 2:
+        global current_time
+        current_time = time.time() - start_time
         writeCoord()
-
+        if current_time % 0.5 < 0.1:  # Change the interval to 0.5 seconds
+            df = pd.DataFrame(pid_data)
+            df.to_excel('pid_data.xlsx', index=False)
     root.mainloop()  # running loop
 
 if __name__ == '__main__':
