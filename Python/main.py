@@ -42,10 +42,12 @@ class PIDController:
         print("error Value: ", error)
         return self.Kp*error + self.Ki*self.integral + self.Kd*derivative
 
-Kp = 0.29 #0.3
-Ki = 0.125 #0.12
+Kp = 0.3 #0.3
+Ki = 0.12 #0.12
 Kd = 0.25 #0.25
 
+setpoint_x = 10
+setpoint_y = 5
 PID_X = PIDController(Kp, Ki , Kd)
 PID_Y = PIDController(Kp, Ki , Kd)
 
@@ -241,8 +243,8 @@ def servo_control(key2, queue):
             servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (
             servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
 
-            Roll  = -PID_Y.compute(5, float_array[1])
-            Pitch = -PID_X.compute(10, float_array[0])
+            Roll  = -PID_Y.compute(setpoint_y, float_array[1])
+            Pitch = -PID_X.compute(setpoint_x, float_array[0])
             save_data(corrd_info, Roll, Pitch)
             ContAng = incline(Pitch, Roll)#incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
             all_angle_assign(ContAng[0], ContAng[1], ContAng[2])

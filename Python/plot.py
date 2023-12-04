@@ -3,7 +3,7 @@ import pandas as pd
 
 def plot_data(line, farge):
     df = pd.read_csv('Gen_Data/saved_data.csv')
-    plt.plot(df['num'], df[line], label='Ball_pos', color = farge)
+    plt.plot(df['num'], df[line], label='PID_Output', color = farge)
     plt.title('PID Output Over Time')
     plt.xlabel('Time (seconds)')
     plt.ylabel('Output')
