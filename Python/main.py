@@ -12,9 +12,8 @@ import control as ctrl
 from tkinter import *
 
 # -------------------------------------------Both programs(Servo Control and Ball Tracker) in one -------------------------------------------
-"""
-For running both programs simultaneously we can use multithreading or multiprocessing
-"""
+start_time = time.time()
+
 class PIDController:
     def __init__(self, P, I, D):
         self.Kp = P
@@ -41,14 +40,16 @@ class PIDController:
         
         self.last_time = current_time
         print("error Value: ", error)
-        return self.Kp*error + self.Ki*self.integral + self.Kd*derivative, error, self.integral, derivative
+        return self.Kp*error + self.Ki*self.integral + self.Kd*derivative
 
-Kp = 1.2 #0.3
-Ki = 0.48 #0.12
-Kd = 0.96 #0.25
+Kp = 0.3 #0.3
+Ki = 0.12 #0.12
+Kd = 0.25 #0.25
 
 PID_X = PIDController(Kp, Ki , Kd)
 PID_Y = PIDController(Kp, Ki , Kd)
+
+pid_data = []
 
 # define servo angles and set a value
 servo1_angle = 0
@@ -160,15 +161,18 @@ def incline(p, r):
                     
         z = np.dot(PosPitch, Transform_matrix_r)
         Va = np.zeros(3)
-
+        """
         for i in range(3):
             Va[i] = np.arcsin(z[i][2] / R) * 180 / np.pi
         return Va
         """
+    
         Va[0] = np.arcsin(z[0][2]/R) * 180/np.pi
         Va[1] = np.arcsin(z[1][2]/R) * 180/np.pi
         Va[2] = np.arcsin(z[2][2]/R) * 180/np.pi
-        """
+        return Va
+        
+        
 
 def servo_control(key2, queue):
     port_id = 'COM3'
@@ -194,30 +198,24 @@ def servo_control(key2, queue):
         Here in this function we get both coordinate and servo control, it is an ideal place to implement the controller
         """
         corrd_info = queue.get()
-        pid_data = pd.DataFrame(columns=['Time', 'Output_X', 'Output_Y']) # Må kanskje endre Outputs til ball posisjon
+        
         try:
             float_array = [float(value) for value in corrd_info]
         except ValueError:
             #print('Invalid coordinate values:', corrd_info)
             return  # Skip the rest of the function if the conversion fails
-        
+        Roll  = -PID_Y.compute(0, float_array[1])
+        Pitch = -PID_X.compute(0, float_array[0])
+            
+        current_time = time.time() - start_time
 
         print('The position of the ball : ', corrd_info)
+        pid_data.append({'Time': current_time, 'Output_X': Pitch, 'Output_Y': Roll})
 
         if (-34 < corrd_info[0] < 44) and (-34 < corrd_info[1] < 44) and (-9000 < corrd_info[2] < 9000) and (
             servo1_angle_limit_negative < servo1_angle < servo1_angle_limit_positive) and (
             servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (
             servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
-
-            Roll  = -PID_Y.compute(5, float_array[1])[0]
-            Pitch = -PID_X.compute(10, float_array[0])[0]
-
-            pid_data = pid_data.append({                        
-                                    'Time': time.time(),
-                                    'Output_X': Pitch,
-                                    'Output_Y': Roll},
-                                    ignore_index=True) # Må kanskje endre Outputs til ball posisjon
-
 
             ContAng = incline(Pitch, Roll)
             all_angle_assign(ContAng[0], ContAng[1], ContAng[2])
@@ -225,6 +223,7 @@ def servo_control(key2, queue):
         else:
             all_angle_assign(0, 0, 0)
 
+        
     def write_arduino(data):
         print('The angles send to the arduino : ', data)
 
@@ -243,26 +242,13 @@ def servo_control(key2, queue):
 
     while key2 == 2:
         writeCoord()
+        if len(pid_data) % 100 == 0:  # Change the interval according to your needs
+            df = pd.DataFrame(pid_data)
+            df.to_excel('pid_data.xlsx', index=False)
 
-    
-    pid_data.to_excel('pid_data.xlsx', index=False)
     root.mainloop()  # running loop
 
-    pid_data = pd.read_excel('pid_data.xlsx')
-
-    plt.figure(figsize=(12, 6))
-
-    plt.plot(pid_data['Time'], pid_data['Output_X'], label='Output_X', color='blue') # må kanskje endre til ball_x
-    plt.plot(pid_data['Time'], pid_data['Output_Y'], label='Output_Y', color='red')  # må kanskje endre til ball_y
-
-    plt.axhline(x=0, color='black', linestyle='--', label='Seitpoint reached')
-
-    plt.title('PID Output for X and Y')
-    plt.xlabel('Time')
-    plt.ylabel('Output Value')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    
 
 if __name__ == '__main__':
 
