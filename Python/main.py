@@ -5,7 +5,7 @@ import cvzone
 from cvzone.ColorModule import ColorFinder
 import cv2
 import serial
-import pandas as pd
+import csv
 import time
 import control as ctrl
 from tkinter import *
@@ -42,15 +42,12 @@ class PIDController:
         print("error Value: ", error)
         return self.Kp*error + self.Ki*self.integral + self.Kd*derivative
 
-Kp = 0.3 #0.3
-Ki = 0.12 #0.12
+Kp = 0.29 #0.3
+Ki = 0.125 #0.12
 Kd = 0.25 #0.25
 
 PID_X = PIDController(Kp, Ki , Kd)
 PID_Y = PIDController(Kp, Ki , Kd)
-
-pid_data = []
-start_time = time.time()
 
 # define servo angles and set a value
 servo1_angle = 0
@@ -68,6 +65,39 @@ servo2_angle_limit_negative = -lim
 
 servo3_angle_limit_positive = lim
 servo3_angle_limit_negative = -lim
+
+counter = 0
+
+#Initalization of the CSV file :
+
+fieldnames = ["num","x", "y", "z","servo1_angle","servo2_angle","servo3_angle" ]
+output_file = f'Gen_Data/saved_data.csv'
+with open(output_file, 'w') as csv_file:
+    csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+    csv_writer.writeheader()
+
+
+#Saving Data to the CSV file :
+
+def save_data(ball_loc, PID_X, PID_Y):
+    global counter
+    output_file = f'Gen_Data/saved_data.csv'
+    with open(output_file, 'a') as csv_file:
+        csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        info = {
+            "num": counter,
+            "x": ball_loc[0],
+            "y": ball_loc[1],
+            "z": ball_loc[2],
+            'PID_X': PID_X,
+            'PID_Y': PID_Y,
+            "servo1_angle": servo1_angle,
+            "servo2_angle": servo2_angle,
+            "servo3_angle": servo3_angle,
+        }
+        csv_writer.writerow(info)
+        counter += 1
+
 
 
 def ball_track(key1, queue):
@@ -213,9 +243,7 @@ def servo_control(key2, queue):
 
             Roll  = -PID_Y.compute(5, float_array[1])
             Pitch = -PID_X.compute(10, float_array[0])
-            current_time = time.time() - start_time
-            
-            pid_data.append({'Time': current_time, 'Output_X': float_array[0], 'Output_Y': float_array[1]})
+            Save_data = save_data(corrd_info, Roll, Pitch)
             ContAng = incline(Pitch, Roll)#incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
             all_angle_assign(ContAng[0], ContAng[1], ContAng[2])
             
@@ -239,12 +267,8 @@ def servo_control(key2, queue):
         write_arduino(str(angles))
 
     while key2 == 2:
-        global current_time
-        current_time = time.time() - start_time
         writeCoord()
-        if current_time % 0.5 < 0.1:  # Change the interval to 0.5 seconds
-            df = pd.DataFrame(pid_data)
-            df.to_excel('pid_data.xlsx', index=False)
+
     root.mainloop()  # running loop
 
 if __name__ == '__main__':
