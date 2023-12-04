@@ -3,7 +3,6 @@ import numpy as np
 from multiprocessing import Queue
 import cvzone
 from cvzone.ColorModule import ColorFinder
-import matplotlib.pyplot as plt
 import cv2
 import serial
 import pandas as pd
@@ -107,23 +106,14 @@ def ball_track(key1, queue):
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
         # imgStack = cvzone.stackImages([img,imgColor, mask, imgContour],2,0.5) #use for calibration and correction
-        crosshair_size = 20
-        crosshair_thickness = 2
-        crosshair_color = (255, 255, 255)  # white color
-
-        # Draw vertical line (plus sign)
-        cv2.line(imgStack, (w // 2, h // 2 - crosshair_size), (w // 2, h // 2 + crosshair_size), crosshair_color, crosshair_thickness)
-
-        # Draw horizontal line (plus sign)
-        cv2.line(imgStack, (w // 2 - crosshair_size, h // 2), (w // 2 + crosshair_size, h // 2), crosshair_color, crosshair_thickness)
 
         cv2.imshow("Image", imgStack)
         cv2.waitKey(1)
 
 
 def incline(p, r):
-        R = 4
-        L = 22.5
+        R = 40
+        L = 225
         p = p * np.pi/180 * 20
         r = r * np.pi/180 * 20
         
@@ -181,8 +171,6 @@ def servo_control(key2, queue):
     
     if key2:
         print('Servo controls are initiated')
-
-
     def all_angle_assign(angle_passed1,angle_passed2,angle_passed3):
         global servo1_angle, servo2_angle, servo3_angle
         servo1_angle = (float(angle_passed1))
@@ -194,9 +182,6 @@ def servo_control(key2, queue):
     root.resizable(0, 0)
 
     def writeCoord():
-        """
-        Here in this function we get both coordinate and servo control, it is an ideal place to implement the controller
-        """
         corrd_info = queue.get()
         
         try:
@@ -204,19 +189,20 @@ def servo_control(key2, queue):
         except ValueError:
             #print('Invalid coordinate values:', corrd_info)
             return  # Skip the rest of the function if the conversion fails
-        Roll  = -PID_Y.compute(0, float_array[1])
-        Pitch = -PID_X.compute(0, float_array[0])
-            
-        current_time = time.time() - start_time
 
         print('The position of the ball : ', corrd_info)
-        pid_data.append({'Time': current_time, 'Output_X': Pitch, 'Output_Y': Roll})
+        
 
         if (-34 < corrd_info[0] < 44) and (-34 < corrd_info[1] < 44) and (-9000 < corrd_info[2] < 9000) and (
             servo1_angle_limit_negative < servo1_angle < servo1_angle_limit_positive) and (
             servo2_angle_limit_negative < servo2_angle < servo2_angle_limit_positive) and (
             servo3_angle_limit_negative < servo3_angle < servo3_angle_limit_positive):
 
+            Roll  = -PID_Y.compute(0, float_array[1])
+            Pitch = -PID_X.compute(0, float_array[0])
+            current_time = time.time() - start_time
+            
+            pid_data.append({'Time': current_time, 'Output_X': Pitch, 'Output_Y': Roll})
             ContAng = incline(Pitch, Roll)
             all_angle_assign(ContAng[0], ContAng[1], ContAng[2])
             
@@ -242,16 +228,13 @@ def servo_control(key2, queue):
 
     while key2 == 2:
         writeCoord()
-        if len(pid_data) % 100 == 0:  # Change the interval according to your needs
+        if len(pid_data) % 600 == 0:  # Change the interval according to your needs
             df = pd.DataFrame(pid_data)
             df.to_excel('pid_data.xlsx', index=False)
 
     root.mainloop()  # running loop
 
-    
-
 if __name__ == '__main__':
-
     queue = Queue() # The queue is done inorder for the communication between the two processes.
     key1 = 1 # just two dummy arguments passed for the processes
     key2 = 2
