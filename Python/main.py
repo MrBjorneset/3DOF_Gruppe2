@@ -50,9 +50,6 @@ Kd = 0.96 #0.25
 PID_X = PIDController(Kp, Ki , Kd)
 PID_Y = PIDController(Kp, Ki , Kd)
 
-pid_data = pd.DataFrame(columns=['Time', 'Output_X', 'Output_Y']) # Må kanskje endre Outputs til ball posisjon
-
-
 # define servo angles and set a value
 servo1_angle = 0
 servo2_angle = 0
@@ -197,7 +194,7 @@ def servo_control(key2, queue):
         Here in this function we get both coordinate and servo control, it is an ideal place to implement the controller
         """
         corrd_info = queue.get()
-        
+        pid_data = pd.DataFrame(columns=['Time', 'Output_X', 'Output_Y']) # Må kanskje endre Outputs til ball posisjon
         try:
             float_array = [float(value) for value in corrd_info]
         except ValueError:
