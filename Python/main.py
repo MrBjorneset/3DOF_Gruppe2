@@ -70,7 +70,7 @@ counter = 0
 
 #Initalization of the CSV file :
 
-fieldnames = ["num","x", "y", "z","servo1_angle","servo2_angle","servo3_angle" ]
+fieldnames = ["num","x", "y", "z", "PID_X", "PID_Y", "servo1_angle","servo2_angle","servo3_angle" ]
 output_file = f'Gen_Data/saved_data.csv'
 with open(output_file, 'w') as csv_file:
     csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
@@ -243,7 +243,7 @@ def servo_control(key2, queue):
 
             Roll  = -PID_Y.compute(5, float_array[1])
             Pitch = -PID_X.compute(10, float_array[0])
-            Save_data = save_data(corrd_info, Roll, Pitch)
+            save_data(corrd_info, Roll, Pitch)
             ContAng = incline(Pitch, Roll)#incline(ball_x, ball_y) # Endre ball_x og ball_y til Output ifrå PID for x og y
             all_angle_assign(ContAng[0], ContAng[1], ContAng[2])
             
