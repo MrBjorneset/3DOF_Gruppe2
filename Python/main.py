@@ -21,7 +21,7 @@ class PIDController:
         self.Kd = D
         self.previous_error = 0
         self.integral = 0
-        self.windup = 20
+        self.windup = 200
         self.last_time = time.time()
 
     def compute(self, setpoint, actual_value):
@@ -46,8 +46,8 @@ Kp = 3 #0.3
 Ki = 1.2 #0.12
 Kd = 2.5 #0.25
 
-setpoint_x = 10
-setpoint_y = 5
+setpoint_x = 4
+setpoint_y = -4
 PID_X = PIDController(Kp, Ki , Kd)
 PID_Y = PIDController(Kp, Ki , Kd)
 
