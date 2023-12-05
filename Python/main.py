@@ -21,7 +21,7 @@ class PIDController:
         self.Kd = D
         self.previous_error = 0
         self.integral = 0
-        self.windup = 200
+        self.windup = 20
         self.last_time = time.time()
 
     def compute(self, setpoint, actual_value):
@@ -42,9 +42,9 @@ class PIDController:
         print("error Value: ", error)
         return self.Kp*error + self.Ki*self.integral + self.Kd*derivative
 
-Kp = 0.3 #0.3
-Ki = 0.12 #0.12
-Kd = 0.25 #0.25
+Kp = 3 #0.3
+Ki = 1.2 #0.12
+Kd = 2.5 #0.25
 
 setpoint_x = 10
 setpoint_y = 5
@@ -155,8 +155,8 @@ def ball_track(key1, queue):
 
 
 def incline(p, r):
-        R = 4
-        L = 22.5
+        R = 0.4
+        L = 0.225
         p = p * np.pi/180 * 20
         r = r * np.pi/180 * 20
         

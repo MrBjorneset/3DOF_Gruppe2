@@ -1,15 +1,15 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
-def plot_data(line, farge):
+def plot_data(line, farge, label):
     df = pd.read_csv('Gen_Data/saved_data.csv')
-    plt.plot(df['num'], df[line], label='PID_Output', color = farge)
-    plt.title('PID Output Over Time')
+    plt.plot(df['num'], df[line], label= label, color = farge)
+    plt.title('Ball Position Over Time')
     plt.xlabel('Time (seconds)')
     plt.ylabel('Output')
     plt.legend()
     plt.grid(True)
     plt.show()
 
-plot_data('PID_X', 'blue')
-plot_data('PID_Y', 'green')
+plot_data('x', 'blue', 'Ball X Position')
+plot_data('y', 'green', 'Ball Y Position')
