@@ -46,8 +46,8 @@ Kp = 3 #0.3
 Ki = 1.2 #0.12
 Kd = 2.5 #0.25
 
-setpoint_x = 4
-setpoint_y = -4
+setpoint_x = 2
+setpoint_y = -2
 PID_X = PIDController(Kp, Ki , Kd)
 PID_Y = PIDController(Kp, Ki , Kd)
 
